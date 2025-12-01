@@ -12,7 +12,6 @@ const statusOptions = ["All", "pending", "accepted", "rejected"];
 
 function makeMessage(client) {
   const needs = (client.websiteNeeds || []).join(", ") || "Not specified";
-<<<<<<< HEAD
   return `Hello ${client.name}, 👋
 
 I hope you're doing well. I have been following your ${client.businessType || "business"} for a while, and during that time, I noticed a few areas where your business could benefit — such as:
@@ -24,9 +23,6 @@ If you're open to it, I’d love to share some ideas that could be helpful for y
 
 Looking forward to connecting! 😊
 Our Website Link: https://ervocraft-react.vercel.app/`;
-=======
-  return `Hello ${client.name},%0A%0ABased on your requirements (${needs}), I have prepared a professional proposal.%0A%0AService Cost: ₹${client.serviceCost || 0}%0ADeadline: ${client.deadline || "Not specified"}%0A%0ALet me know if we can proceed.`;
->>>>>>> 27cc439515ae347659a1bb20fc0c923c4e4fb823
 }
 
 export default function ClientList() {
