@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE = import.meta.env.VITE_API_BASE || "https://ervocraft-clinets-1.onrender.com/api/clients";
+const API_BASE = import.meta.env.VITE_API_BASE || "https://ervocraft-clinets-2.onrender.com/api/clients";
 
 // Add client
 export const addClient = (data) => axios.post(`${API_BASE}/add`, data);
