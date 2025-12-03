@@ -40,6 +40,8 @@ export default function ClientList() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportStartDate, setExportStartDate] = useState("");
   const [exportEndDate, setExportEndDate] = useState("");
+  const [filterStartDate, setFilterStartDate] = useState("");
+const [filterEndDate, setFilterEndDate] = useState("");
 
   const load = async (category = "All", status = "All") => {
     setLoading(true);
@@ -249,9 +251,25 @@ export default function ClientList() {
     alert(`Successfully exported ${dataToExport.length} clients to Excel!`);
   };
 
-  let filteredClients = clients.filter(c => 
-    searchTerm === "" || c.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+ let filteredClients = clients.filter(c => 
+  searchTerm === "" || c.name.toLowerCase().includes(searchTerm.toLowerCase())
+);
+
+// Apply date range filter
+if (filterStartDate || filterEndDate) {
+  filteredClients = filteredClients.filter(client => {
+    const clientDate = formatDate(client.createdAt);
+    
+    if (filterStartDate && filterEndDate) {
+      return clientDate >= filterStartDate && clientDate <= filterEndDate;
+    } else if (filterStartDate) {
+      return clientDate >= filterStartDate;
+    } else if (filterEndDate) {
+      return clientDate <= filterEndDate;
+    }
+    return true;
+  });
+}
 
   if (sortField) {
     filteredClients.sort((a, b) => {
@@ -305,6 +323,25 @@ export default function ClientList() {
           {/* Filters */}
           <div className="bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20 p-6 shadow-2xl">
             <div className="flex flex-col md:flex-row gap-4">
+              <div className="relative min-w-[180px]">
+  <input
+    type="date"
+    value={filterStartDate}
+    onChange={e => setFilterStartDate(e.target.value)}
+    placeholder="Start Date"
+    className="w-full px-4 py-3 bg-white/10 border-2 border-white/20 rounded-xl text-white focus:border-blue-400 focus:bg-white/20 transition-all outline-none"
+  />
+</div>
+
+<div className="relative min-w-[180px]">
+  <input
+    type="date"
+    value={filterEndDate}
+    onChange={e => setFilterEndDate(e.target.value)}
+    placeholder="End Date"
+    className="w-full px-4 py-3 bg-white/10 border-2 border-white/20 rounded-xl text-white focus:border-blue-400 focus:bg-white/20 transition-all outline-none"
+  />
+</div>
               <div className="flex-1 relative">
                 <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-blue-300" />
                 <input
