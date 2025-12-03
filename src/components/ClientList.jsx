@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { Users, Filter, MessageCircle, Mail, Search, MapPin, Phone, IndianRupee, Calendar, Loader2, Edit2, Trash2, X, Save, ChevronDown, ChevronUp } from "lucide-react";
+import { Users, Filter, MessageCircle, Mail, Search, MapPin, Phone, IndianRupee, Calendar, Loader2, Edit2, Trash2, X, Save, ChevronDown, ChevronUp, Download } from "lucide-react";
 import { getClients, updateClient, deleteClient, sendEmailToClient } from "../api/clientApi";
+import * as XLSX from "xlsx";
 
 const categories = [
   "All", "Salon / Beauty", "Gym / Fitness", "Real Estate", "Restaurant / Food",
@@ -19,7 +20,7 @@ ${needs}
 
 I would be happy to help you with these requirements and provide professional solutions at a budget-friendly price to support your business growth.
 
-If you're open to it, I’d love to share some ideas that could be helpful for you.
+If you're open to it, I'd love to share some ideas that could be helpful for you.
 
 Looking forward to connecting! 😊
 Our Website Link: https://ervocraft-react.vercel.app/`;
@@ -36,12 +37,14 @@ export default function ClientList() {
   const [sortField, setSortField] = useState("");
   const [sortDirection, setSortDirection] = useState("asc");
   const [expandedRows, setExpandedRows] = useState(new Set());
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportStartDate, setExportStartDate] = useState("");
+  const [exportEndDate, setExportEndDate] = useState("");
 
   const load = async (category = "All", status = "All") => {
     setLoading(true);
     try {
       const res = await getClients(category, status);
-      // Handle both response formats: res.data.data or res.data
       setClients(res.data.data || res.data || []);
     } catch (err) {
       console.error("Error loading clients:", err);
@@ -105,7 +108,6 @@ export default function ClientList() {
 
   const handleSaveEdit = async (id) => {
     try {
-      // Convert websiteNeeds from comma-separated string to array
       const websiteNeedsArray = editForm.websiteNeeds
         .split(",")
         .map(need => need.trim())
@@ -159,6 +161,94 @@ export default function ClientList() {
     setExpandedRows(newExpanded);
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    return date.toISOString().split('T')[0]; // Returns YYYY-MM-DD
+  };
+
+  const handleExportToExcel = () => {
+    let dataToExport = [...clients];
+
+    // Filter by date range if provided
+    if (exportStartDate || exportEndDate) {
+      dataToExport = dataToExport.filter(client => {
+        const clientDate = formatDate(client.createdAt);
+        
+        if (exportStartDate && exportEndDate) {
+          return clientDate >= exportStartDate && clientDate <= exportEndDate;
+        } else if (exportStartDate) {
+          return clientDate >= exportStartDate;
+        } else if (exportEndDate) {
+          return clientDate <= exportEndDate;
+        }
+        return true;
+      });
+    }
+
+    if (dataToExport.length === 0) {
+      alert("No clients found for the selected date range!");
+      return;
+    }
+
+    // Prepare data for Excel
+    const excelData = dataToExport.map(client => ({
+      "Name": client.name,
+      "Email": client.email,
+      "Phone": client.phone,
+      "Category": client.category,
+      "Address": client.address || "N/A",
+      "Website Needs": (client.websiteNeeds || []).join(", "),
+      "Service Cost (₹)": client.serviceCost || 0,
+      "Deadline": client.deadline || "N/A",
+      "Status": client.status || "pending",
+      "Created Date": formatDate(client.createdAt),
+      "Business Type": client.businessType || "N/A"
+    }));
+
+    // Create worksheet and workbook
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Clients");
+
+    // Set column widths
+    const columnWidths = [
+      { wch: 20 }, // Name
+      { wch: 25 }, // Email
+      { wch: 15 }, // Phone
+      { wch: 20 }, // Category
+      { wch: 30 }, // Address
+      { wch: 30 }, // Website Needs
+      { wch: 15 }, // Service Cost
+      { wch: 12 }, // Deadline
+      { wch: 10 }, // Status
+      { wch: 12 }, // Created Date
+      { wch: 15 }  // Business Type
+    ];
+    worksheet['!cols'] = columnWidths;
+
+    // Generate filename with date range
+    let filename = "clients_export";
+    if (exportStartDate && exportEndDate) {
+      filename += `_${exportStartDate}_to_${exportEndDate}`;
+    } else if (exportStartDate) {
+      filename += `_from_${exportStartDate}`;
+    } else if (exportEndDate) {
+      filename += `_until_${exportEndDate}`;
+    }
+    filename += `.xlsx`;
+
+    // Download file
+    XLSX.writeFile(workbook, filename);
+
+    // Close modal and reset dates
+    setShowExportModal(false);
+    setExportStartDate("");
+    setExportEndDate("");
+    
+    alert(`Successfully exported ${dataToExport.length} clients to Excel!`);
+  };
+
   let filteredClients = clients.filter(c => 
     searchTerm === "" || c.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -191,14 +281,25 @@ export default function ClientList() {
       <div className="max-w-[1600px] mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center gap-4 mb-6">
-            <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/50">
-              <Users className="w-7 h-7 text-white" />
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl flex items-center justify-center shadow-2xl shadow-blue-500/50">
+                <Users className="w-7 h-7 text-white" />
+              </div>
+              <div>
+                <h1 className="text-4xl font-bold text-white">Client Management</h1>
+                <p className="text-blue-200 text-sm">Manage and track all your client relationships</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-4xl font-bold text-white">Client Management</h1>
-              <p className="text-blue-200 text-sm">Manage and track all your client relationships</p>
-            </div>
+
+            {/* Export Button */}
+            <button
+              onClick={() => setShowExportModal(true)}
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-xl hover:from-green-600 hover:to-emerald-700 transition-all shadow-lg shadow-green-500/30"
+            >
+              <Download className="w-5 h-5" />
+              Export to Excel
+            </button>
           </div>
 
           {/* Filters */}
@@ -245,6 +346,79 @@ export default function ClientList() {
             </div>
           </div>
         </div>
+
+        {/* Export Modal */}
+        {showExportModal && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-800 rounded-2xl border border-white/20 p-6 max-w-md w-full">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-white">Export to Excel</h2>
+                <button
+                  onClick={() => {
+                    setShowExportModal(false);
+                    setExportStartDate("");
+                    setExportEndDate("");
+                  }}
+                  className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5 text-white" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-blue-300 mb-2">
+                    Start Date (Optional)
+                  </label>
+                  <input
+                    type="date"
+                    value={exportStartDate}
+                    onChange={e => setExportStartDate(e.target.value)}
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:border-blue-400 outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-blue-300 mb-2">
+                    End Date (Optional)
+                  </label>
+                  <input
+                    type="date"
+                    value={exportEndDate}
+                    onChange={e => setExportEndDate(e.target.value)}
+                    className="w-full px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:border-blue-400 outline-none"
+                  />
+                </div>
+
+                <div className="bg-blue-500/10 border border-blue-400/30 rounded-lg p-3">
+                  <p className="text-sm text-blue-200">
+                    <strong>Tip:</strong> Leave dates empty to export all clients, or select a date range to filter by creation date.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mt-6">
+                <button
+                  onClick={handleExportToExcel}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-lg hover:from-green-600 hover:to-emerald-700 transition-all"
+                >
+                  <Download className="w-4 h-4" />
+                  Download Excel
+                </button>
+                <button
+                  onClick={() => {
+                    setShowExportModal(false);
+                    setExportStartDate("");
+                    setExportEndDate("");
+                  }}
+                  className="px-4 py-3 bg-white/10 text-white font-semibold rounded-lg hover:bg-white/20 transition-all"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Edit Modal */}
         {editingId && (
@@ -476,56 +650,52 @@ export default function ClientList() {
                                 <MapPin className="w-3 h-3" />
                                 {client.address}
                               </div>
-                            </div>
+                              </div>
                           </td>
                           <td className="px-6 py-4">
-                            <div className="flex items-center gap-1 text-green-400 font-bold">
+                            <div className="flex items-center gap-2 text-green-400 font-semibold">
                               <IndianRupee className="w-4 h-4" />
                               {client.serviceCost?.toLocaleString() || 0}
                             </div>
-                            {client.deadline && (
-                              <div className="flex items-center gap-1 text-xs text-slate-400 mt-1">
-                                <Calendar className="w-3 h-3" />
-                                {client.deadline}
-                              </div>
-                            )}
                           </td>
                           <td className="px-6 py-4">
                             <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
-                              client.status === "accepted" ? "bg-green-500/20 text-green-300 border border-green-400/30" :
-                              client.status === "rejected" ? "bg-red-500/20 text-red-300 border border-red-400/30" :
-                              "bg-yellow-500/20 text-yellow-300 border border-yellow-400/30"
+                              client.status === "accepted" 
+                                ? "bg-green-500/20 text-green-300 border border-green-400/30"
+                                : client.status === "rejected"
+                                ? "bg-red-500/20 text-red-300 border border-red-400/30"
+                                : "bg-yellow-500/20 text-yellow-300 border border-yellow-400/30"
                             }`}>
-                              {client.status?.charAt(0).toUpperCase() + client.status?.slice(1)}
+                              {client.status || "pending"}
                             </span>
                           </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center justify-center gap-2">
                               <button
                                 onClick={() => handleWhatsApp(client)}
-                                className="p-2 bg-green-500/20 hover:bg-green-500/30 text-green-300 rounded-lg transition-all border border-green-400/30"
-                                title="WhatsApp"
+                                className="p-2 bg-green-500/20 text-green-300 rounded-lg hover:bg-green-500/30 transition-colors border border-green-400/30"
+                                title="Send WhatsApp"
                               >
                                 <MessageCircle className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={() => handleSendEmail(client)}
-                                className="p-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 rounded-lg transition-all border border-blue-400/30"
-                                title="Email"
+                                className="p-2 bg-blue-500/20 text-blue-300 rounded-lg hover:bg-blue-500/30 transition-colors border border-blue-400/30"
+                                title="Send Email"
                               >
                                 <Mail className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={() => handleEdit(client)}
-                                className="p-2 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 rounded-lg transition-all border border-amber-400/30"
-                                title="Edit"
+                                className="p-2 bg-purple-500/20 text-purple-300 rounded-lg hover:bg-purple-500/30 transition-colors border border-purple-400/30"
+                                title="Edit Client"
                               >
                                 <Edit2 className="w-4 h-4" />
                               </button>
                               <button
                                 onClick={() => handleDelete(client._id, client.name)}
-                                className="p-2 bg-red-500/20 hover:bg-red-500/30 text-red-300 rounded-lg transition-all border border-red-400/30"
-                                title="Delete"
+                                className="p-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-colors border border-red-400/30"
+                                title="Delete Client"
                               >
                                 <Trash2 className="w-4 h-4" />
                               </button>
@@ -541,16 +711,37 @@ export default function ClientList() {
                                 <div>
                                   <h4 className="text-sm font-semibold text-blue-300 mb-2">Website Needs</h4>
                                   <div className="flex flex-wrap gap-2">
-                                    {client.websiteNeeds?.map((need, idx) => (
-                                      <span key={idx} className="px-2 py-1 bg-purple-500/20 text-purple-300 text-xs rounded-lg border border-purple-400/30">
-                                        {need}
-                                      </span>
-                                    ))}
+                                    {(client.websiteNeeds || []).length > 0 ? (
+                                      client.websiteNeeds.map((need, idx) => (
+                                        <span key={idx} className="px-2 py-1 bg-cyan-500/20 text-cyan-300 text-xs rounded-lg border border-cyan-400/30">
+                                          {need}
+                                        </span>
+                                      ))
+                                    ) : (
+                                      <span className="text-slate-400 text-sm">No needs specified</span>
+                                    )}
                                   </div>
                                 </div>
+                                
                                 <div>
-                                  <h4 className="text-sm font-semibold text-blue-300 mb-2">Full Address</h4>
-                                  <p className="text-blue-200 text-sm">{client.address}</p>
+                                  <h4 className="text-sm font-semibold text-blue-300 mb-2">Project Details</h4>
+                                  <div className="space-y-2">
+                                    <div className="flex items-center gap-2 text-sm text-blue-200">
+                                      <Calendar className="w-4 h-4" />
+                                      <span className="text-slate-400">Deadline:</span>
+                                      <span>{client.deadline || "Not set"}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-sm text-blue-200">
+                                      <span className="text-slate-400">Business Type:</span>
+                                      <span>{client.businessType || "Not specified"}</span>
+                                    </div>
+                                    {client.createdAt && (
+                                      <div className="flex items-center gap-2 text-sm text-blue-200">
+                                        <span className="text-slate-400">Added:</span>
+                                        <span>{formatDate(client.createdAt)}</span>
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
                               </div>
                             </td>
